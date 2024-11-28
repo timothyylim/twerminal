@@ -1,1 +1,3 @@
-# terminal-tweet
+# twerminal 
+
+A terminal based twitter client. 
