@@ -15,6 +15,13 @@ app.use(session({
     saveUninitialized: true,
 }));
 
+// At the start of your server setup
+console.log(`Using Client ID: ${process.env.TWITTER_CLIENT_ID}`);
+if (!process.env.TWITTER_CLIENT_ID) {
+    console.error('TWITTER_CLIENT_ID is not set. Check your .env file and environment variables.');
+    process.exit(1);
+}
+
 // Route to initiate Twitter authentication
 app.get('/auth/twitter', (req, res) => {
     const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${encodeURIComponent(process.env.TWITTER_CLIENT_ID)}&redirect_uri=${encodeURIComponent(process.env.TWITTER_CALLBACK_URL)}&scope=${encodeURIComponent('tweet.read tweet.write users.read offline.access')}&state=state123&code_challenge=challenge&code_challenge_method=plain`;
@@ -71,27 +78,24 @@ app.get('/refresh', async (req, res) => {
     }
 
     try {
-        // Request a new access token using the refresh token
+        const clientId = process.env.TWITTER_CLIENT_ID;
+        console.log(`Attempting to refresh token using Client ID: ${clientId}`);
+
         const response = await axios.post('https://api.twitter.com/2/oauth2/token', null, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                Authorization: `Basic ${Buffer.from(`${process.env.TWITTER_CLIENT_ID}:${process.env.TWITTER_CLIENT_SECRET}`).toString('base64')}`,
+                Authorization: `Basic ${Buffer.from(`${clientId}:${process.env.TWITTER_CLIENT_SECRET}`).toString('base64')}`,
             },
             params: {
                 grant_type: 'refresh_token',
                 refresh_token: refreshToken,
-                client_id: process.env.TWITTER_CLIENT_ID,
+                client_id: clientId,
             },
         });
 
         const newTokens = response.data;
-
-        // Update tokens in the session
         req.session.tokenSet = newTokens;
-
-        // Save new tokens to file
         fs.writeFileSync('./data/token.json', JSON.stringify(newTokens, null, 2));
-
         res.send(`Token refreshed! New Token: <pre>${JSON.stringify(newTokens, null, 2)}</pre>`);
     } catch (error) {
         console.error('Failed to refresh token:', error.response ? error.response.data : error.message);
